@@ -73,6 +73,77 @@
       <div class="outer">
         <section id="main">
   
+    <article id="post-深度学习环境配置" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2025/03/02/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE/" class="article-date">
+  <time class="dt-published" datetime="2025-03-02T14:04:27.000Z" itemprop="datePublished">2025-03-02</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="p-name article-title" href="/2025/03/02/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE/">深度学习环境配置</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <p><strong>本文主要介绍深度学习框架的配置，并不是手把手截图配置，不会这么详细，但会讲清楚概念和原理</strong></p>
+<h4 id=""><a href="#" class="headerlink" title=""></a></h4><p>在个人系统中分为全局环境和虚拟环境，深度学习框架一般安装在虚拟环境中。深度学习框架一般需要GPU 支持，而GPU 本是用来渲染画面的，而不是用来训练神经网络的所以需要安装cuda 来使能后者。</p>
+<h4 id="关于显卡的一些概念："><a href="#关于显卡的一些概念：" class="headerlink" title="关于显卡的一些概念："></a>关于显卡的一些概念：</h4><ul>
+<li>显卡驱动程序<ul>
+<li>任何硬件都需要驱动程序，这样系统才能调用这个硬件</li>
+</ul>
+</li>
+<li>cuda<ul>
+<li>一个软件库，让显卡可以用来训练神经网络</li>
+</ul>
+</li>
+<li>cuda toolkit<ul>
+<li>cuda 的运行环境，包含了cuda 的很多依赖和工具</li>
+</ul>
+</li>
+<li>cuDNN<ul>
+<li>专门为深度学习加速的库，它是基于 CUDA 运行的</li>
+</ul>
+</li>
+</ul>
+<p>一般情况下，cuda 与 cuda toolkit 是同时安装的。</p>
+<p>所以要安装深度学习框架（GPU）版本，就需要显卡的支持，自然就需要显卡驱动程序，cuda, cuda toolkit 和cuDNN 。</p>
+<h4 id="安装之前"><a href="#安装之前" class="headerlink" title="安装之前"></a>安装之前</h4><p><strong>更新自己的显卡驱动（为了增加支持CUDA 版本上线）：</strong> 左边为显卡驱动版本，右边为最高支持CUDA版本。<br>使用命令：<code>nvidia-smi</code><br>更新前：<br><img src="/2025/03/02/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE/image.png" alt="alt text"><br>更新后：<br><img src="/2025/03/02/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE/image-1.png" alt="alt text"><br>可以看到更新驱动后支持cuda 版本更高了，也就代表这我们能安装更高版本的深度学习框架。</p>
+<p><strong>注意：</strong> 这里安装的驱动在全局环境，全局环境里面可以不安装cuda，如果需要请看在<a href="#%E5%85%A8%E5%B1%80%E7%8E%AF%E5%A2%83%E5%AE%89%E8%A3%85cuda">全局环境中安装cuda</a>.</p>
+<h4 id="创建虚拟环境"><a href="#创建虚拟环境" class="headerlink" title="创建虚拟环境"></a>创建虚拟环境</h4><p><strong>为什么非要在虚拟环境中安装呢？</strong> 因为上面的四个工具版本与框架版本是有对应关系的，如果在全局环境中安装的话，就几乎不可能同时存在不同版本的pytorch 或者同时存在pytorch 和tensorflow。</p>
+<p><strong>用conda 创建环境，而不用Python 自带的虚拟环境工具venv：</strong> 因为conda 环境内既可以用conda 下载包也可以用Pip, 后者只能用pip 。所有的深度学习框架都需要cuda，cuda toolkit cuDNN, 而只有conda 才能在虚拟环境中安装非python 库，pip 则不行。</p>
+<h4 id="安装tensorflow"><a href="#安装tensorflow" class="headerlink" title="安装tensorflow"></a>安装tensorflow</h4><p>Tensorflow-GPU 目前最新版本已经不支持windows 了，如果要下载只能用老版本。所以windows 推荐pytorch。<br>安装前需要对照版本：<a target="_blank" rel="noopener" href="https://tensorflow.google.cn/install/source_windows?hl=en#gpu">Build from source on Windows  |  TensorFlow</a><br>官网教程：<br><img src="/2025/03/02/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE/image-2.png" alt="alt text"><br>这里安装的cudatoolkit 里面包含了cuda 。</p>
+<h4 id="安装pytorch"><a href="#安装pytorch" class="headerlink" title="安装pytorch"></a>安装pytorch</h4><p>官网教程：<br><img src="/2025/03/02/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE/image-3.png" alt="alt text"><br>安装前需要对照python 版本。这句命令会自动在虚拟环境中安装cuda，cuda toolkit，cuDNN 所以一条命令就可以实现安装torch 环境，很方便。唯一要注意的是，这里选择的cuda 版本务必要小于等于显卡驱动所支持的最大版本。</p>
+<p><em>这里有问题：这里安装只用了pip 没有用conda 安装非python 库？与只能用conda 冲突了？</em></p>
+<hr>
+<p>** <em>必要内容结束</em> **</p>
+<hr>
+<h4 id="全局环境安装cuda"><a href="#全局环境安装cuda" class="headerlink" title="全局环境安装cuda"></a>全局环境安装cuda</h4><p>先使用命令：<code>nvcc --version</code><br>如果没有此命令，也不存在目录（C:\Program Files\INVIDIA GPU Computing Toolkit）说明没安装。<br>正常安装后输出是这样的：<br><img src="/2025/03/02/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE/image-4.png" alt="alt text"></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2025/03/02/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE/" data-id="cm7rrh6gw0002wwgx2v4m9dsp" data-title="深度学习环境配置" class="article-share-link"><span class="fa fa-share">Share</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+
+  
     <article id="post-python-对象赋值原则" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
     <a href="/2025/02/26/python-%E5%AF%B9%E8%B1%A1%E8%B5%8B%E5%80%BC%E5%8E%9F%E5%88%99/" class="article-date">
@@ -160,7 +231,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://example.com/2025/02/26/python-%E5%AF%B9%E8%B1%A1%E8%B5%8B%E5%80%BC%E5%8E%9F%E5%88%99/" data-id="cm7lxvn0h00013wgx2vvi86zr" data-title="python 对象赋值原则" class="article-share-link"><span class="fa fa-share">Share</span></a>
+      <a data-url="http://example.com/2025/02/26/python-%E5%AF%B9%E8%B1%A1%E8%B5%8B%E5%80%BC%E5%8E%9F%E5%88%99/" data-id="cm7rrh6gu0001wwgxdw9l2d1j" data-title="python 对象赋值原则" class="article-share-link"><span class="fa fa-share">Share</span></a>
       
       
       
@@ -211,7 +282,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://example.com/2025/02/26/hello-world/" data-id="cm7lxvn0d00003wgx6fc2gd5p" data-title="Hello World" class="article-share-link"><span class="fa fa-share">Share</span></a>
+      <a data-url="http://example.com/2025/02/26/hello-world/" data-id="cm7rrh6gr0000wwgxdebo2d89" data-title="Hello World" class="article-share-link"><span class="fa fa-share">Share</span></a>
       
       
       
@@ -241,7 +312,7 @@
   <div class="widget-wrap">
     <h3 class="widget-title">Archives</h3>
     <div class="widget">
-      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2025/02/">February 2025</a></li></ul>
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2025/03/">March 2025</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2025/02/">February 2025</a></li></ul>
     </div>
   </div>
 
@@ -252,6 +323,10 @@
     <h3 class="widget-title">Recent Posts</h3>
     <div class="widget">
       <ul>
+        
+          <li>
+            <a href="/2025/03/02/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE/">深度学习环境配置</a>
+          </li>
         
           <li>
             <a href="/2025/02/26/python-%E5%AF%B9%E8%B1%A1%E8%B5%8B%E5%80%BC%E5%8E%9F%E5%88%99/">python 对象赋值原则</a>
