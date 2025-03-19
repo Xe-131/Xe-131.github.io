@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>正弦波从采样到梅尔频谱图 | Xe-blogs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="本文内容为正弦波的采样, 加窗, 傅里叶变换和梅尔滤波, 将波形定为简单的正弦波是为了简化例子, 专注于每个变换所带来的数值上的变化, 以更好的理解整个过程, 为音频处理做铺垫. 注意: 文中FFT 部分只是列出了傅里叶变换的输出, 并没有解释为什么是这样的输出, 比如用torch.fft.fft()得到的是复数, 需要求模长, 并除以样本的一半, 才是正确的幅值等.这些都涉及到傅里叶变换的原理,">
+<meta property="og:type" content="article">
+<meta property="og:title" content="正弦波从采样到梅尔频谱图">
+<meta property="og:url" content="http://example.com/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/index.html">
+<meta property="og:site_name" content="Xe-blogs">
+<meta property="og:description" content="本文内容为正弦波的采样, 加窗, 傅里叶变换和梅尔滤波, 将波形定为简单的正弦波是为了简化例子, 专注于每个变换所带来的数值上的变化, 以更好的理解整个过程, 为音频处理做铺垫. 注意: 文中FFT 部分只是列出了傅里叶变换的输出, 并没有解释为什么是这样的输出, 比如用torch.fft.fft()得到的是复数, 需要求模长, 并除以样本的一半, 才是正确的幅值等.这些都涉及到傅里叶变换的原理,">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://example.com/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image.png">
+<meta property="og:image" content="http://example.com/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image-1.png">
+<meta property="og:image" content="http://example.com/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image-2.png">
+<meta property="og:image" content="http://example.com/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image-3.png">
+<meta property="og:image" content="http://example.com/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image-4.png">
+<meta property="og:image" content="http://example.com/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image-5.png">
+<meta property="og:image" content="http://example.com/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image-8.png">
+<meta property="og:image" content="http://example.com/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image-9.png">
+<meta property="og:image" content="http://example.com/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image-3.png">
+<meta property="article:published_time" content="2025-03-19T09:00:52.000Z">
+<meta property="article:modified_time" content="2025-03-19T09:01:40.116Z">
+<meta property="article:author" content="Xe-131">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image.png">
+  
+    <link rel="alternate" href="/atom.xml" title="Xe-blogs" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css">
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Xe-blogs</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS Feed"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="Search"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://example.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-正弦波从采样到梅尔频谱图" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/" class="article-date">
+  <time class="dt-published" datetime="2025-03-19T09:00:52.000Z" itemprop="datePublished">2025-03-19</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="p-name article-title" itemprop="headline name">
+      正弦波从采样到梅尔频谱图
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <p>本文内容为正弦波的采样, 加窗, 傅里叶变换和梅尔滤波, 将波形定为简单的正弦波是为了简化例子, 专注于每个变换所带来的数值上的变化, 以更好的理解整个过程, 为音频处理做铺垫.</p>
+<p><strong>注意:</strong> 文中FFT 部分只是列出了傅里叶变换的输出, 并没有解释为什么是这样的输出, 比如用<code>torch.fft.fft()</code>得到的是复数, 需要求模长, 并除以样本的一半, 才是正确的幅值等.这些都涉及到傅里叶变换的原理, 本系列文章暂时不涉及, 插个<a href="">眼</a>在这里, 万一以后有契机补充这部分内容也说不定.</p>
+<h4 id="所有代码的import"><a href="#所有代码的import" class="headerlink" title="所有代码的import"></a>所有代码的import</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> torch</span><br><span class="line"><span class="keyword">import</span> torchaudio</span><br><span class="line"><span class="keyword">import</span> matplotlib.pyplot <span class="keyword">as</span> plt</span><br><span class="line"><span class="keyword">import</span> numpy <span class="keyword">as</span> np</span><br></pre></td></tr></table></figure>
+<h4 id="采样"><a href="#采样" class="headerlink" title="采样"></a>采样</h4><p>对频率为500 Hz 幅值为100 的正弦波进行5 个周期的采样, 分别设置采样率为1-6 倍原频率.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 正弦波的频率</span></span><br><span class="line">f1 = <span class="number">500</span></span><br><span class="line"><span class="comment"># 周期</span></span><br><span class="line">T = <span class="number">1</span> / f1</span><br><span class="line"><span class="comment"># 采样范围</span></span><br><span class="line">TT = <span class="number">5</span>*T</span><br><span class="line"></span><br><span class="line">fig, axes = plt.subplots(<span class="number">2</span>, <span class="number">3</span>, figsize=(<span class="number">20</span>, <span class="number">10</span>))</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> i, ax <span class="keyword">in</span> <span class="built_in">enumerate</span>(axes.flatten()):</span><br><span class="line">    <span class="comment"># 采样率</span></span><br><span class="line">    fs = f1 * (i + <span class="number">1</span>)</span><br><span class="line">    <span class="comment"># 采样点数</span></span><br><span class="line">    N = <span class="built_in">int</span>(fs * TT)</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">f&quot;f1 = <span class="subst">&#123;f1&#125;</span>, T = <span class="subst">&#123;T&#125;</span>, TT = <span class="subst">&#123;TT&#125;</span>, fs = <span class="subst">&#123;fs&#125;</span>, N = <span class="subst">&#123;N&#125;</span>&quot;</span>)</span><br><span class="line"></span><br><span class="line">    x = torch.linspace(<span class="number">0</span>, TT, N)</span><br><span class="line">    y = <span class="number">100</span> * torch.sin( (<span class="number">2</span>*torch.pi)*f1*x)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># 原波形</span></span><br><span class="line">    ax.plot(x, y)</span><br><span class="line">    ax.set_xlabel(<span class="string">&quot;time&quot;</span>)</span><br><span class="line">    ax.set_ylabel(<span class="string">&quot;amplitude&quot;</span>)</span><br><span class="line">    ax.set_title(<span class="string">f&quot;sample wave (fs = <span class="subst">&#123;fs&#125;</span>)&quot;</span>)</span><br></pre></td></tr></table></figure>
+<p><img src="/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image.png" alt="alt text"><br>可以明显看到, 采样率越高越还原波形, 最少需要两倍原频率.</p>
+<h4 id="FFT"><a href="#FFT" class="headerlink" title="FFT"></a>FFT</h4><p>为了展示出FFT 的作用, 这里用了5 个不同频率和幅值的正弦波以及一个随机噪声, 采样率设定的比较高, 让波形看起来比较丝滑.后续处理都是基于这个波形, 前面采样部分只是起到一个演示作用.</p>
+<p>下面直接画出FFT 前后的波形.需要注意的是, 在FFT 前我先把波形都归一化到了[-1, 1].至于为什么可能要看完本篇文章才能看得懂: 对于单个音频来说, 同个语句由于响度不一样大, 波形幅值会不一样, 但大致形状相同.到文章的最后输入模型的分贝值就会产生偏移, 这会给模型带来数值大小的困扰, 如果归一化就不会有这个问题.对于不同的语句音频, 归一化就是去除响度的干扰因素, 默认所有语句, 都一个响度.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 第一个正弦波</span></span><br><span class="line"><span class="comment"># 正弦波的频率</span></span><br><span class="line">f1 = <span class="number">1000</span></span><br><span class="line"><span class="comment"># 周期</span></span><br><span class="line">T = <span class="number">1</span> / f1</span><br><span class="line"><span class="comment"># 采样范围</span></span><br><span class="line">TT = <span class="number">10</span>*T</span><br><span class="line"><span class="comment"># 采样率</span></span><br><span class="line">fs = <span class="number">20000</span></span><br><span class="line"></span><br><span class="line">N = <span class="built_in">int</span>(fs * TT)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 第二个正弦波</span></span><br><span class="line">f2 = <span class="number">300</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 第三个</span></span><br><span class="line">f3 = <span class="number">700</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 第四个</span></span><br><span class="line">f4 = <span class="number">7000</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 第五个</span></span><br><span class="line">f5 = <span class="number">5000</span></span><br><span class="line"></span><br><span class="line">x = torch.linspace(<span class="number">0</span>, TT, N)</span><br><span class="line"><span class="comment"># 直接相加</span></span><br><span class="line">y1 = <span class="number">70</span> * torch.sin( (<span class="number">2</span>*torch.pi)*f1*x)</span><br><span class="line">y2 = <span class="number">50</span> * torch.sin( (<span class="number">2</span>*torch.pi)*f2*x)</span><br><span class="line">y3 = <span class="number">20</span> * torch.sin( (<span class="number">2</span>*torch.pi)*f3*x)</span><br><span class="line">y4 = <span class="number">60</span> * torch.sin( (<span class="number">2</span>*torch.pi)*f4*x)</span><br><span class="line">y5 = <span class="number">80</span> * torch.sin( (<span class="number">2</span>*torch.pi)*f5*x)</span><br><span class="line"><span class="comment"># 噪声</span></span><br><span class="line">noise = torch.randn(N) * <span class="number">100</span></span><br><span class="line"></span><br><span class="line">y = y1 + y2 + y3 + y4 + y5 + noise</span><br><span class="line">y = y1 + y2 + y3 + y4 + y5 </span><br><span class="line"><span class="comment"># 缩放到[-1, 1]</span></span><br><span class="line">max_val = torch.<span class="built_in">max</span>(torch.<span class="built_in">abs</span>(y))  <span class="comment"># 找到绝对值最大值</span></span><br><span class="line"><span class="keyword">if</span> max_val &gt; <span class="number">0</span>:</span><br><span class="line">    y = y / max_val  </span><br><span class="line"><span class="built_in">print</span>(<span class="string">f&quot;max_val: <span class="subst">&#123;max_val&#125;</span>&quot;</span>)</span><br><span class="line"></span><br><span class="line">fig, axes = plt.subplots(<span class="number">1</span>, <span class="number">2</span>, figsize=(<span class="number">20</span>, <span class="number">10</span>))</span><br><span class="line">axes = [axes]</span><br><span class="line"><span class="comment"># fig, axes = plt.subplots(2, 2, figsize=(20, 10))</span></span><br><span class="line"><span class="comment"># 原波形</span></span><br><span class="line">axes[<span class="number">0</span>][<span class="number">0</span>].plot(x, y)</span><br><span class="line">axes[<span class="number">0</span>][<span class="number">0</span>].set_xlabel(<span class="string">&quot;time&quot;</span>)</span><br><span class="line">axes[<span class="number">0</span>][<span class="number">0</span>].set_ylabel(<span class="string">&quot;amplitude&quot;</span>)</span><br><span class="line">axes[<span class="number">0</span>][<span class="number">0</span>].set_title(<span class="string">&quot;original wave&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># FFT</span></span><br><span class="line">y_fft = torch.fft.fft(y)</span><br><span class="line">y_fft = torch.<span class="built_in">abs</span>(y_fft) / (N / <span class="number">2</span>)</span><br><span class="line">x_fft = torch.linspace(<span class="number">0</span>, fs, N)</span><br><span class="line"></span><br><span class="line">axes[<span class="number">0</span>][<span class="number">1</span>].plot(x_fft, y_fft)</span><br><span class="line">axes[<span class="number">0</span>][<span class="number">1</span>].set_xlabel(<span class="string">&quot;frequency&quot;</span>)</span><br><span class="line">axes[<span class="number">0</span>][<span class="number">1</span>].set_ylabel(<span class="string">&quot;amplitude&quot;</span>)</span><br><span class="line">axes[<span class="number">0</span>][<span class="number">1</span>].set_title(<span class="string">&quot;after FFT&quot;</span>)</span><br></pre></td></tr></table></figure>
+<p><img src="/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image-1.png" alt="alt text"></p>
+<p>注意<code>torch.fft.fft()</code> 计算得到的是复数, 需要勾股定理求模长, 然后要除以一半的样本数, 这样得到的幅值才是符合原本的度量.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">y_fft = torch.fft.fft(y)</span><br><span class="line">y_fft = torch.<span class="built_in">abs</span>(y_fft) / (N / <span class="number">2</span>)</span><br></pre></td></tr></table></figure>
+<p>原始波形的横坐标是时间, 纵坐标是幅值.<br>FFT 后的波形叫做幅值图, 它的纵坐标也是幅值, 但横坐标却是频率.点(x, y)表示, 在原始波形中, 频率为x 的正弦波分量的幅值是y .图(左右对称)左边有5个凸起, 分别对应5 个正弦分量.其中中频率为7000 Hz, 与5000 hz 的值为0.35 和0.225, 这如果没有进行归一化这两个值应该在60, 80 左右, 正好对应初始正弦分量的幅值.归一化就是线性除以了一个系数, 乘上这个系数,就可以变回60 和 80.</p>
+<p>但是要画出幅值图可不像画出原始采样波形那样简单, 需要你知道FFT 的输出究竟是什么.</p>
+<ul>
+<li>横坐标的个数<ul>
+<li>原始采样波形有多少个点(N), 那么个数就为N</li>
+</ul>
+</li>
+<li>横坐标的单位与数值<ul>
+<li>单位就是Hz, 因为其表示的是频率</li>
+<li>数值间隔, 也就是分辨率(interval 简称 I), 为: 采样频率(fs) &#x2F; (横坐标个数(N) - 1)</li>
+<li>数值范围为0 到 采样频率(fs)</li>
+</ul>
+</li>
+<li>纵坐标: 与原始采样波形一样, 表示幅值大小, 只是等比缩放了</li>
+</ul>
+<p><strong>一般只取幅值图的左半边, 因为它左右对称:</strong></p>
+<ul>
+<li>横坐标的个数变为: (N &#x2F;&#x2F; 2 + 1)</li>
+<li>横坐标的范围变为: (0 Hz 到 (N&#x2F;&#x2F;2*I) Hz )</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 取一半</span></span><br><span class="line">interval = fs / (N-<span class="number">1</span>)</span><br><span class="line">x_fft = torch.linspace(<span class="number">0</span>, (N//<span class="number">2</span>)*interval, N//<span class="number">2</span>+<span class="number">1</span>)</span><br><span class="line">y_fft = y_fft[<span class="number">0</span>:N//<span class="number">2</span>+<span class="number">1</span>]</span><br><span class="line"></span><br><span class="line">fig, axes = plt.subplots(figsize=(<span class="number">20</span>, <span class="number">10</span>))</span><br><span class="line">axes.plot(x_fft, y_fft)</span><br><span class="line">axes.set_xlabel(<span class="string">&quot;frequency&quot;</span>)</span><br><span class="line">axes.set_ylabel(<span class="string">&quot;amplitude&quot;</span>)</span><br><span class="line">axes.set_title(<span class="string">&quot;Keep half&quot;</span>)</span><br></pre></td></tr></table></figure>
+<p><img src="/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image-2.png" alt="alt text"><br><strong>总的来看FFT 只能分析一半采样频率以内的频率分量, 而且采样点数越多, 分析的频率分量就越多频率间隔就越小.</strong></p>
+<h4 id="功率谱"><a href="#功率谱" class="headerlink" title="功率谱"></a>功率谱</h4><p>幅值谱的纵坐标表示幅值, 对于声波来说就是声压.将幅值平方即可转化为功率.<br>功率谱如下:</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 功率谱</span></span><br><span class="line">y_pow = y_fft ** <span class="number">2</span></span><br><span class="line"></span><br><span class="line">fig, axes = plt.subplots(figsize=(<span class="number">20</span>, <span class="number">10</span>))</span><br><span class="line">axes.plot(x_fft, y_pow)</span><br><span class="line">axes.set_xlabel(<span class="string">&quot;frequency&quot;</span>)</span><br><span class="line">axes.set_ylabel(<span class="string">&quot;power&quot;</span>)</span><br><span class="line">axes.set_title(<span class="string">&quot;power spectrum&quot;</span>)</span><br></pre></td></tr></table></figure>
+<p><img src="/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image-3.png" alt="alt text"><br>这个图的点(x, y) 表示频率为x 的正弦分量的功率为y.</p>
+<h4 id="梅尔滤波"><a href="#梅尔滤波" class="headerlink" title="梅尔滤波"></a>梅尔滤波</h4><p>这一步会将功率谱转化为梅尔频谱图, 将功率转化为能量.<br>如何进行转化呢? 就是将原功率谱与n 个等长的梅尔滤波器相乘再相加,得到长度为n 的梅尔频谱图.</p>
+<h5 id="得到梅尔滤波器"><a href="#得到梅尔滤波器" class="headerlink" title="得到梅尔滤波器"></a>得到梅尔滤波器</h5><p>人耳对频率的感受是非线性的, 比如你会感觉1000Hz 与2000Hz 差别巨大, 但6000Hz 与 7000Hz 差距并没有这么大.梅尔频率与普通频率基本相同, 只是单位不一样, 前者为mel 后者为Hz.将普通频率转化为梅尔频率后, 1000ml 与2000ml 和6000ml 与7000ml 在听觉上的差距就一致了.<br>两者存在定量的转换公式:<br><img src="/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image-4.png" alt="alt text"><br>计算梅尔滤波器的大致步骤:先在hz 单位下, 取一个最大频率和最小频率, 将它们都转化为mel 频率, 再根据mel 单位下的数值等距划分出中间多个数值.这样就得到了一个单位为mel 的等差数列频率, 再将这个等差数列转回hz 单位, 自然就不等差了, 但是符合人耳对频率差距的感知.<br>得到这些hz 数列后, 每三个数据, 创造一个三角滤波器, 每个三角滤波器可以对原功率谱进行滤波.<br>下面是计算梅尔滤波器的函数, 默认计算26 个梅尔滤波器(26 是前人总结的经验).</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">输入:</span></span><br><span class="line"><span class="string">    n_fft: 窗口大小</span></span><br><span class="line"><span class="string">    fs: 采样率</span></span><br><span class="line"><span class="string">输出:</span></span><br><span class="line"><span class="string">    x: FFT 后折半保留的单位为频率的轴</span></span><br><span class="line"><span class="string">    mel_fliters: (num_fliters(26), fliter_size)</span></span><br><span class="line"><span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">get_mel_fliters</span>(<span class="params">n_fft, fs</span>):</span><br><span class="line">    <span class="comment"># 计算mel 滤波器组</span></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">mel_to_hz</span>(<span class="params">mel</span>):</span><br><span class="line">        <span class="keyword">return</span> <span class="number">700</span> * (np.exp(mel / <span class="number">1125</span>) - <span class="number">1</span>)</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">hz_to_mel</span>(<span class="params">hz</span>):</span><br><span class="line">        <span class="keyword">return</span> <span class="number">1125</span> * np.log(<span class="number">1</span> + hz / <span class="number">700</span>)</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 原幅值图X 轴范围</span></span><br><span class="line">    <span class="comment"># 分辨率</span></span><br><span class="line">    interval = fs / (n_fft-<span class="number">1</span>)</span><br><span class="line">    <span class="comment"># 保留点数: 总的FFT 点数除以二加一</span></span><br><span class="line">    n_fft_reserve = n_fft // <span class="number">2</span> + <span class="number">1</span></span><br><span class="line">    <span class="comment"># 幅值图X 轴</span></span><br><span class="line">    x = torch.linspace(<span class="number">0</span>, interval*(n_fft_reserve-<span class="number">1</span>), n_fft_reserve)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># print(&quot;x:&quot;)</span></span><br><span class="line">    <span class="comment"># print(x)</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># 计算mel 频率桶</span></span><br><span class="line">    <span class="comment"># 低于300 Hz 人耳感受不到,不需要计算这部分的能量</span></span><br><span class="line">    hz_min = <span class="number">300</span></span><br><span class="line">    <span class="comment"># 保留的幅值图中最大的频率</span></span><br><span class="line">    hz_max = x[-<span class="number">1</span>]</span><br><span class="line">    mel_min = hz_to_mel(hz_min)</span><br><span class="line">    mel_max = hz_to_mel(hz_max)</span><br><span class="line">    <span class="comment"># 26 个滤波器需要28 个点</span></span><br><span class="line">    mel_bins = torch.linspace(mel_min, mel_max, <span class="number">28</span>)</span><br><span class="line">    <span class="comment"># 来回转换有误差, 保证转回Hz 时不超过范围</span></span><br><span class="line">    hz_bins = torch.clamp(mel_to_hz(mel_bins), <span class="built_in">max</span>=hz_max, <span class="built_in">min</span>=hz_min)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># print(&quot;hz_bins:&quot;)</span></span><br><span class="line">    <span class="comment"># print(hz_bins)</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># 计算原x 轴与频率桶最相近的频率索引</span></span><br><span class="line">    hz_indexs = []</span><br><span class="line">    <span class="keyword">for</span> hz_bin <span class="keyword">in</span> hz_bins:</span><br><span class="line">        temp_abs = torch.<span class="built_in">abs</span>(x - hz_bin)</span><br><span class="line">        temp_min = temp_abs.<span class="built_in">min</span>()</span><br><span class="line">        indexs = torch.where(temp_abs == temp_min)</span><br><span class="line">        hz_indexs.append(indexs[<span class="number">0</span>].item())</span><br><span class="line">    <span class="comment"># print(&quot;hz_index:&quot;)</span></span><br><span class="line">    <span class="comment"># print(hz_indexs)</span></span><br><span class="line">        </span><br><span class="line">    <span class="comment"># 判断频率桶是否重复, 如果重复则无法正常创造梅尔滤波器</span></span><br><span class="line">    hz_index_set = <span class="built_in">set</span>(hz_indexs)</span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">len</span>(hz_indexs) &gt; <span class="built_in">len</span>(hz_index_set):</span><br><span class="line">        <span class="built_in">print</span>(<span class="string">&quot;hz bin 有重复&quot;</span>)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># 创建mel 滤波器</span></span><br><span class="line">    mel_fliters = torch.zeros((<span class="number">26</span>, <span class="built_in">len</span>(x)))</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> index, fliter <span class="keyword">in</span> <span class="built_in">enumerate</span>(mel_fliters):</span><br><span class="line">        left = hz_indexs[index]</span><br><span class="line">        center = hz_indexs[index + <span class="number">1</span>]</span><br><span class="line">        right = hz_indexs[index + <span class="number">2</span>]</span><br><span class="line"></span><br><span class="line">        <span class="comment"># 线性上升部分</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(left, center):</span><br><span class="line">            fliter[i] = (i - left) / (center - left)</span><br><span class="line"></span><br><span class="line">        <span class="comment"># 线性下降部分</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(center, right):</span><br><span class="line">            fliter[i] = (right - i) / (right - center)</span><br><span class="line">        </span><br><span class="line">    <span class="keyword">return</span> x, mel_fliters</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>可视化滤波前后:<br>注意这由于杂波每次生成的都不一样, 所以画图的纵坐标需要稍微调整一下.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">fig, axes = plt.subplots(<span class="number">3</span>, <span class="number">2</span>, figsize=(<span class="number">20</span>, <span class="number">10</span>))</span><br><span class="line">ax = axes.flatten()</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># 26 个梅尔滤波器叠加</span></span><br><span class="line">x, mel_fliters = get_mel_fliters(N, fs)</span><br><span class="line"><span class="keyword">for</span> fliter <span class="keyword">in</span> mel_fliters:</span><br><span class="line">    ax[<span class="number">0</span>].plot(x, fliter)</span><br><span class="line">ax[<span class="number">0</span>].set_xlabel(<span class="string">&quot;Hz&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 原波形</span></span><br><span class="line">ax[<span class="number">1</span>].plot(y_pow)</span><br><span class="line">ax[<span class="number">1</span>].set_ylim(<span class="number">0</span>, <span class="number">0.15</span>) </span><br><span class="line"></span><br><span class="line"><span class="comment"># 第2个滤波器</span></span><br><span class="line">ax[<span class="number">2</span>].plot(mel_fliters[<span class="number">1</span>])</span><br><span class="line"></span><br><span class="line"><span class="comment"># 被第2 个滤波器滤波后的原波形</span></span><br><span class="line">ax[<span class="number">3</span>].plot(mel_fliters[<span class="number">1</span>] * y_pow)</span><br><span class="line">ax[<span class="number">3</span>].set_ylim(<span class="number">0</span>, <span class="number">0.15</span>) </span><br><span class="line"></span><br><span class="line"><span class="comment"># 第6个滤波器</span></span><br><span class="line">ax[<span class="number">4</span>].plot(mel_fliters[<span class="number">5</span>])</span><br><span class="line"></span><br><span class="line"><span class="comment"># 被第6 个滤波器滤波后的原波形</span></span><br><span class="line">ax[<span class="number">5</span>].plot(mel_fliters[<span class="number">5</span>] * y_pow)</span><br><span class="line">ax[<span class="number">5</span>].set_ylim(<span class="number">0</span>, <span class="number">0.15</span>) </span><br></pre></td></tr></table></figure>
+<p><img src="/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image-5.png" alt="alt text"></p>
+<ul>
+<li>左边三张图分别是<ul>
+<li>26 个梅尔滤波器叠加</li>
+<li>第2 个滤波器</li>
+<li>第6 个滤波器</li>
+</ul>
+</li>
+<li>右边<ul>
+<li>原波形</li>
+<li>被第2 个滤波器滤波后的原波形</li>
+<li>被第6 个滤波器滤波后的原波形</li>
+</ul>
+</li>
+</ul>
+<p>说是滤波, 其实就是直接相乘.<br>滤波后的图像看起来就是三角形, 这是因为我们的原始波形太简单了,虽然加了噪声, 但是依旧很纯净.再下一篇的语音处理中, 就会复杂得多.</p>
+<h5 id="梅尔频谱图"><a href="#梅尔频谱图" class="headerlink" title="梅尔频谱图"></a>梅尔频谱图</h5><p>用26 个滤波器对功率谱进行滤波会得到26 个向量, 向量中值代表的是功率, 如果将每个向量的值加起来,得到26 个值, 那么这些值代表的是什么呢, 能量.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">fig, axes = plt.subplots(<span class="number">2</span>, <span class="number">1</span>, figsize=(<span class="number">20</span>, <span class="number">10</span>))</span><br><span class="line"></span><br><span class="line"><span class="comment"># 得到梅尔频谱图</span></span><br><span class="line">mel_data = []</span><br><span class="line"><span class="keyword">for</span> mel_fliter <span class="keyword">in</span> mel_fliters:</span><br><span class="line">    mel_data.append((mel_fliter * y_pow).<span class="built_in">sum</span>() )</span><br><span class="line">axes[<span class="number">0</span>].plot(mel_data)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 将能量对数化, 转化成分贝</span></span><br><span class="line">mel_data = torch.tensor(mel_data)</span><br><span class="line">mel_data = <span class="number">20</span>*torch.log10(mel_data + <span class="number">1e-10</span>)</span><br><span class="line">axes[<span class="number">1</span>].plot(mel_data)</span><br></pre></td></tr></table></figure>
+<p><img src="/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image-8.png" alt="alt text"></p>
+<p>前面将hz 频率转化为mel 频率目的就让滤波的每个频率段落差值符合人耳听觉规律.这里将上图取对数得到下图也是同理.人耳对能量(响度)的感知也不是线性的, 人耳对响度（音量）的感知并不是线性的，而是更接近对数关系，即声音的主观响度随物理能量的变化呈对数增长。因此，对能量取对数可以使信号的表示更加符合人耳的听觉特性.<br>对数后的纵坐标从能量变成了加了对数并线性变换后的比例,分母是1, 所有的能量都在跟1 比, 如果其小于1 比例值最后就是负数.这个比例的单位就是分贝(dB).<br>所以我们得到了最终的梅尔频谱图, 它的横坐标是[0, 25], 代表原音频的26 个频率部分.它的纵坐标是对数比例, 单位是分贝, 代表各个部分能量与1 的比例.</p>
+<p>但是我们通常不单独画一段音频的梅尔频谱图, 而是将时间连续的音频分别计算梅尔频谱图, 再画到同一张图上.<br>这里举一个最简单的例子, 将刚刚计算得到的频谱图的分贝值全部减10, 假设这就是原波形的下一等长时间的波形, 我们将这两张图画在一起.变成一个三维的图像.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">fig, axes = plt.subplots(figsize=(<span class="number">20</span>, <span class="number">10</span>))</span><br><span class="line">mel_data_double = torch.stack((mel_data, mel_data-<span class="number">10</span>))</span><br><span class="line"></span><br><span class="line">im = axes.imshow(mel_data_double.T, aspect=<span class="string">&quot;auto&quot;</span>, origin=<span class="string">&quot;lower&quot;</span>, cmap=<span class="string">&quot;hot&quot;</span>, extent=[<span class="number">1</span>, <span class="number">2</span>, <span class="number">0</span>, <span class="number">25</span>])</span><br><span class="line">cbar = fig.colorbar(im, ax=axes)</span><br><span class="line">cbar.set_label(<span class="string">&quot;dB&quot;</span>)</span><br></pre></td></tr></table></figure>
+<p><img src="/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image-9.png" alt="alt text"><br>看不懂图先别慌, 横坐标[1, 2], 代表我们画了两个时刻的频谱图, 每一列代表一个时刻(也就是一帧), 纵坐标代表26 的频率部分, 而颜色代表对数比例的数值, 颜色越亮数值越大.</p>
+<hr>
+<p>** <em>必要内容结束</em> **</p>
+<hr>
+<h4 id="加窗"><a href="#加窗" class="headerlink" title="加窗"></a>加窗</h4><p>首先窗函数长这样, 它的横坐标长度就是FFT 前原始采样波形的长度. 加窗就是将窗函数乘上采样波形, 对采样波形进行缩放.<br>目的就是减少频谱泄露:</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 正弦波的频率</span></span><br><span class="line">f1 = <span class="number">500</span></span><br><span class="line"><span class="comment"># 周期</span></span><br><span class="line">T = <span class="number">1</span> / f1</span><br><span class="line"><span class="comment"># 采样范围</span></span><br><span class="line">TT = <span class="number">5</span>*T</span><br><span class="line"><span class="comment"># 采样率</span></span><br><span class="line">fs = f1 * <span class="number">10</span></span><br><span class="line"><span class="comment"># 采样点数</span></span><br><span class="line">N = <span class="built_in">int</span>(fs * TT)</span><br><span class="line"></span><br><span class="line">x = torch.linspace(<span class="number">0</span>, TT, N)</span><br><span class="line">y = <span class="number">100</span> * torch.sin( (<span class="number">2</span>*torch.pi)*f1*x)</span><br><span class="line"></span><br><span class="line">fig, axes = plt.subplots(<span class="number">3</span>, <span class="number">1</span>, figsize=(<span class="number">20</span>, <span class="number">5</span>))</span><br><span class="line"></span><br><span class="line"><span class="comment"># 原波形</span></span><br><span class="line">axes[<span class="number">0</span>].plot(y)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 窗函数</span></span><br><span class="line">hann_window = torch.windows.hann(<span class="built_in">len</span>(y))</span><br><span class="line">axes[<span class="number">1</span>].plot(hann_window)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 相乘（加窗）</span></span><br><span class="line">axes[<span class="number">2</span>].plot(hann_window * y)</span><br></pre></td></tr></table></figure>
+<p><img src="/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/image-3.png" alt="alt text"></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/" data-id="cm8fp1cq20002eogxbri1hse9" data-title="正弦波从采样到梅尔频谱图" class="article-share-link"><span class="fa fa-share">Share</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+  
+    <a href="/2025/03/10/%E4%BB%8E%E7%A9%BA%E6%B0%94%E9%9C%87%E5%8A%A8%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">从空气震动到梅尔频谱图</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2025/03/">March 2025</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2025/02/">February 2025</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2025/03/19/%E6%AD%A3%E5%BC%A6%E6%B3%A2%E4%BB%8E%E9%87%87%E6%A0%B7%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/">正弦波从采样到梅尔频谱图</a>
+          </li>
+        
+          <li>
+            <a href="/2025/03/10/%E4%BB%8E%E7%A9%BA%E6%B0%94%E9%9C%87%E5%8A%A8%E5%88%B0%E6%A2%85%E5%B0%94%E9%A2%91%E8%B0%B1%E5%9B%BE/">从空气震动到梅尔频谱图</a>
+          </li>
+        
+          <li>
+            <a href="/2025/03/02/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE/">深度学习环境配置</a>
+          </li>
+        
+          <li>
+            <a href="/2025/02/26/python-%E5%AF%B9%E8%B1%A1%E8%B5%8B%E5%80%BC%E5%8E%9F%E5%88%99/">python 对象赋值原则</a>
+          </li>
+        
+          <li>
+            <a href="/2025/02/26/hello-world/">Hello World</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2025 Xe-131<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>
